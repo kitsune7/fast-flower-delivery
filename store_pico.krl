@@ -68,5 +68,29 @@ ruleset store_pico {
 		}
 	}
   }
+
+   rule notify_customer {
+    select when notify customer
+    pre {
+      	// When a driver has been assigned, the customer should be notified via text
+      	// The text includes the name and phone number of the driver, as well as the customer's order_id
+      
+      	// Object received is in this format
+ 	// 	{	
+  	//    "driver_phone": number
+  	//    "driver_name": string
+  	//    "order_id": number
+  	//  }
+  		
+  	driver_phone = event:attr("driver_phone")
+  	driver_name = event:attr("driver_name")
+  	order_id = event:attr("order_id")
+  	order = get_order_by_id(order_id).klog("GETTING ORDER BY ID")
+  	customer_phone = order{"customer_phone"}.klog("CUSTOMER PHONE")
+  	customer_name = order{"customer_name"}.klog("CUSTOMER NAME")
+  	message = "Hello " + customer_name  + ", "  + driver_name + " has been assigned to deliver your order, and can be reached at - " + driver_phone
+    }
+    twilio:send_sms(customer_phone, store_phone, message)
+  }
 }
 
