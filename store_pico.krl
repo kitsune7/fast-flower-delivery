@@ -28,45 +28,45 @@ ruleset store_pico {
   rule order_received {
     select when order new 
     pre {
-      // Object received is in this format
-  		// 	{	
-  		// 	  pickup_time:	Date/Time				
-  		// 	  delivery_time:	Date/Time				
-  		// 	  delivery_address:	string				
-  		// 	  customer_phone:	string		
-  		// 	  customer_name: string
-  		// 	}
+	// Object received is in this format
+ 	// 	{	
+  	// 	  pickup_time:	Date/Time				
+ 	// 	  delivery_time:	Date/Time				
+ 	// 	  delivery_address:	string				
+  	// 	  customer_phone:	string		
+  	// 	  customer_name: string
+  	// 	}
   		
-  		// Generate unique id for order
-  		order_id = random:uuid()
+  	// Generate unique id for order
+  	order_id = random:uuid()
   		
-  		pickup_time = event:attr("pickup_time").defaultsTo("null")
-  		delivery_address = event:attr("delivery_address")
-  		customer_phone = event:attr("customer_phone")
-  		customer_name = event:attr("customer_name")
+  	pickup_time = event:attr("pickup_time").defaultsTo("null")
+  	delivery_address = event:attr("delivery_address")
+  	customer_phone = event:attr("customer_phone")
+  	customer_name = event:attr("customer_name")
   		
-  		new_order = {
-  		  "order_id": order_id,
-  		  "pickup_time": pickup_time,
-  		  "delivery_address": delivery_address,
-  		  "customer_phone": customer_phone,
-  		  "customer_name": customer_name
-  		}.klog("NEW ORDER")
+  	new_order = {
+  		"order_id": order_id,
+ 		"pickup_time": pickup_time,
+  		"delivery_address": delivery_address,
+  		"customer_phone": customer_phone,
+  		"customer_name": customer_name
+  	}.klog("NEW ORDER")
     }
       		
-		always {
-		  ent:orders{id} := new_order;
-		  
-		  raise order event "find_driver" attributes {
-		    "order_id": order_id,
-    	  "pickup_time": pickup_time,
-  		  "delivery_address": delivery_address,
-  		  "customer_phone": customer_phone,
-  		  "customer_name": customer_name,
-  		  "store_lat": store_address,
-  		  "store_long": store_long
-		  }
+	always {
+	 	ent:orders{id} := new_order;
+	
+		raise order event "find_driver" attributes {
+			"order_id": order_id,
+    	  		"pickup_time": pickup_time,
+  		  	"delivery_address": delivery_address,
+  		  	"customer_phone": customer_phone,
+  		  	"customer_name": customer_name,
+  		  	"store_lat": store_address,
+  		  	"store_long": store_long
 		}
+	}
   }
 }
 
