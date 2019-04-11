@@ -1,6 +1,6 @@
 ruleset store_pico {
  	meta {
-    		shares __testing, get_orders, get_order_by_id
+    		shares __testing, get_orders, get_order_by_id, get_incomplete_orders, get_unassigned_orders
   	}
   	
 	global {
