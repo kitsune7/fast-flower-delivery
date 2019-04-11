@@ -2,17 +2,7 @@ ruleset store_pico {
  	meta {
     		shares __testing, get_orders, get_order_by_id, get_incomplete_orders, get_unassigned_orders
   	}
-  	
-	global {
-    		__testing = { "queries":
-      		[ { "name": "__testing" }
-      		//, { "name": "entry", "args": [ "key" ] }
-      		] , "events":
-      		[ //{ "domain": "d1", "type": "t1" }
-      		//, { "domain": "d2", "type": "t2", "attrs": [ "a1", "a2" ] }
-      		]
-    	}
-    
+  	 
     	// Store address is set to TMCB building BYU
     	store_lat = 40.249213
     	store_long = 111.651413
