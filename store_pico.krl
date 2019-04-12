@@ -53,7 +53,9 @@ ruleset store_pico {
  			"pickup_time": pickup_time,
   			"delivery_address": delivery_address,
   			"customer_phone": customer_phone,
-  			"customer_name": customer_name
+  			"customer_name": customer_name,
+			"assigned_driver": "none",
+  		  	"has_been_delivered": "none"
   		}.klog("NEW ORDER")
     	}
       		
