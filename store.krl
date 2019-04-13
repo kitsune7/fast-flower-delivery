@@ -172,4 +172,15 @@ ruleset store {
     
     twilio:send_sms(customer_phone, store_phone, message)
   }
+  
+  rule complete_order {
+    select when order complete
+    pre {
+      order_id = event:attr("order_id")
+      order = ent:orders{order_id}
+    }
+    always {
+      ent:orders{order_id} := order.put(["has_been_delivered"], "true")
+    }
+  }
 }
