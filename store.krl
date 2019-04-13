@@ -7,6 +7,7 @@ ruleset store {
     // Store address is set to TMCB building BYU
     store_lat = 40.249213
     store_long = 111.651413
+    delay_seconds = 5 // The number of seconds to wait for collecting all the driver responses
 
     get_orders = function() {
       ent:orders.defaultsTo([])
@@ -77,6 +78,10 @@ ruleset store {
 
     always {
       ent:orders{order_id} := new_order;
+      
+      schedule driver event "hire" at time:add(time:now(), {"seconds" : delay}) attributes {
+        "order_id": order_id
+      };
 
       raise order event "find_driver" attributes {
         "order_id": order_id,
@@ -111,6 +116,36 @@ ruleset store {
         }))
       )
     }
+  }
+  
+  rule select_closest_driver {
+    select when driver hire
+    pre {
+      order_id = event:attr("order_id")
+      drivers = ent:orders{order_id}{"applied_drivers"}
+    }
+    /* TODO: Add magic API voodoo that figures out which driver is closest */
+  }
+  
+  rule notify_selected_driver {
+    select when driver selected
+    pre {
+      order_id = event:attr("order_id")
+      order = ent:orders{order_id}
+      driver = order{"assigned_driver"}
+    }
+    event:send({
+      "eci": driver{"eci"},
+      "domain": "test",
+      "type": "test",
+      "attrs": {
+        "order_id": order_id,
+        "pickup_time": order{"pickup_time"},
+        "delivery_address": order{"delivery_address"},
+        "customer_phone": order{"customer_phone"},
+        "customer_name": order{"customer_name"}
+      }
+    })
   }
 
   rule notify_customer {
