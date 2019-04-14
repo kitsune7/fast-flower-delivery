@@ -12,7 +12,7 @@ ruleset store {
     delay_seconds = 5 // The number of seconds to wait for collecting all the driver responses
 
     get_driver_eci = function () {
-      Subscriptions:established()
+      ent:drivers[0]{"eci"}.klog("getting first driver's eci")
     }
 
     get_orders = function() {
@@ -45,6 +45,40 @@ ruleset store {
     select when orders clear
     always {
       clear ent:orders
+    }
+  }
+  
+  rule subscribe_driver {
+    select when subscribe driver
+    pre {
+      name = event:attr("name")
+    }
+    
+    fired {
+      raise wrangler event "child_creation" 
+      attributes {"driver_name": name, 
+                  "color": "#0d915c", 
+                  "rids": []
+      }
+    }
+  }
+  
+   rule newSensorDetected {
+    select when wrangler new_child_created
+    pre {
+      eci = event:attr("eci").klog("ECI FOR NEW CHILD")
+      name = event:attr("name").klog("NEW CHILD CREATED")
+    }
+
+    always {
+      name.klog("*** NEW DRIVER ADDED ***");
+      ent:drivers := ent:drivers.defaultsTo({});
+      ent:drivers{[name]} := {"eci": eci};
+      raise wrangler event "subscription" attributes {
+        "name": name,
+        "channel_type": "subscription",
+        "wellKnown_Tx": eci
+      }
     }
   }
 
@@ -182,6 +216,14 @@ ruleset store {
     }
     
     twilio:send_sms(customer_phone, store_phone, message)
+  }
+  
+  rule auto_accept {
+    select when wrangler inbound_pending_subscription_added
+    fired {
+      raise wrangler event "pending_subscription_approval"
+        attributes event:attrs
+    }
   }
   
   rule complete_order {
