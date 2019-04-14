@@ -12,8 +12,7 @@ ruleset store {
     delay_seconds = 5 // The number of seconds to wait for collecting all the driver responses
 
     get_driver_eci = function () {
-      drivers = ent:drivers.values()
-      drivers[0]{"eci"}
+      Subscriptions:established("Tx_role", "sensor").map(function(v) { v{"Tx"} })
     }
 
     get_orders = function() {
@@ -67,14 +66,11 @@ ruleset store {
    rule newSensorDetected {
     select when wrangler new_child_created
     pre {
-      eci = event:attr("eci").klog("ECI FOR NEW CHILD")
       name = event:attr("name").klog("NEW CHILD CREATED")
     }
 
     always {
       name.klog("*** NEW DRIVER ADDED ***");
-      ent:drivers := ent:drivers.defaultsTo({});
-      ent:drivers{[name]} := {"eci": eci};
       raise wrangler event "subscription" attributes {
         "name": name,
         "channel_type": "subscription",
@@ -115,6 +111,9 @@ ruleset store {
         "applied_drivers": [],
         "has_been_delivered": "none"
       }.klog("NEW ORDER")
+      ecis = get_driver_eci()
+      rand_int = random:integer(ecis.length() - 1);
+      eci = ecis[rand_int]
     }
 
     always {
@@ -125,7 +124,7 @@ ruleset store {
       };
       
       event:send({
-        "eci": get_driver_eci(),
+        "eci": eci,
         "domain": "driver",
         "type": "find_driver",
         "attrs": {
@@ -237,4 +236,5 @@ ruleset store {
       ent:orders{order_id} := order.put(["has_been_delivered"], "true")
     }
   }
+
 }
