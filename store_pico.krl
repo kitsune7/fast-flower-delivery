@@ -1,8 +1,8 @@
-ruleset store_pico {
+iruleset store_pico {
   meta {
     use module twilio_sms alias twilio
     use module io.picolabs.subscription alias Subscriptions
-    shares __testing, get_orders, get_order_by_id, get_incomplete_orders, get_unassigned_orders
+    shares __testing, get_orders, get_order_by_id, get_incomplete_orders, get_unassigned_orders, get_driver_eci
   }
 
   global {
@@ -12,9 +12,9 @@ ruleset store_pico {
     delay_seconds = 5 // The number of seconds to wait for collecting all the driver responses
 
     get_driver_eci = function () {
-      ecis = Subscriptions:established("Tx_role", "driver").map(function(v) { v{"Tx"} })
+      subscriptions = Subscriptions:established("Tx_role","driver").klog("Drivers:");
       rand_int = random:integer(ecis.length() - 1);
-      ecis[rand_int]
+      subscriptions[rand_int]{"Tx"}
     }
 
     get_orders = function() {
@@ -53,14 +53,14 @@ ruleset store_pico {
   rule subscribe_driver {
     select when subscribe driver
     pre {
-      name = event:attr("name")
+      name = event:attr("name").klog("subscribing driver")
     }
     
     fired {
       raise wrangler event "child_creation" 
-      attributes {"driver_name": name, 
+      attributes {"name": name, 
                   "color": "#0d915c", 
-                  "rids": []
+                  "rids": ["driver"]
       }
     }
   }
@@ -76,9 +76,29 @@ ruleset store_pico {
       raise wrangler event "subscription" attributes {
         "name": name,
         "channel_type": "subscription",
-	"Tx_role": driver,
-        "wellKnown_Tx": eci
+	      "Tx_role": "driver",
+        "wellKnown_Tx": eci,
+        "Rx_role": "driver"
       }
+    }
+  }
+  
+  rule auto_accept {
+    select when wrangler inbound_pending_subscription_added
+    pre {
+      attrs = event:attr.klog("auto accepting")
+    }
+    
+    fired {
+      raise wrangler event "pending_subscription_approval"
+        attributes attrs
+    }
+  }
+  
+  rule subscriptionAdded {
+    select when wrangler subscription_added
+    pre {
+      Tx = event:attr("_Tx").klog("SUBSCRIPTION ADDED Tx")
     }
   }
 
@@ -217,14 +237,6 @@ ruleset store_pico {
     }
     
     twilio:send_sms(customer_phone, store_phone, message)
-  }
-  
-  rule auto_accept {
-    select when wrangler inbound_pending_subscription_added
-    fired {
-      raise wrangler event "pending_subscription_approval"
-        attributes event:attrs
-    }
   }
   
   rule complete_order {
