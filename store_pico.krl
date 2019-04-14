@@ -65,7 +65,7 @@ ruleset store_pico {
     }
   }
   
-   rule newSensorDetected {
+   rule new_driver_detected {
     select when wrangler new_child_created
     pre {
       name = event:attr("name").klog("NEW CHILD CREATED")
@@ -76,6 +76,7 @@ ruleset store_pico {
       raise wrangler event "subscription" attributes {
         "name": name,
         "channel_type": "subscription",
+	"Tx_role": driver,
         "wellKnown_Tx": eci
       }
     }
