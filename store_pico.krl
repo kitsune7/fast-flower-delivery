@@ -12,7 +12,8 @@ ruleset store {
     delay_seconds = 5 // The number of seconds to wait for collecting all the driver responses
 
     get_driver_eci = function () {
-      ent:drivers[0]{"eci"}.klog("getting first driver's eci")
+      drivers = ent:drivers.values()
+      drivers[0]{"eci"}
     }
 
     get_orders = function() {
