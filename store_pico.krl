@@ -1,4 +1,4 @@
-ruleset store {
+ruleset store_pico {
   meta {
     use module twilio_sms alias twilio
     use module io.picolabs.subscription alias Subscriptions
@@ -12,7 +12,9 @@ ruleset store {
     delay_seconds = 5 // The number of seconds to wait for collecting all the driver responses
 
     get_driver_eci = function () {
-      Subscriptions:established("Tx_role", "sensor").map(function(v) { v{"Tx"} })
+      ecis = Subscriptions:established("Tx_role", "driver").map(function(v) { v{"Tx"} })
+      rand_int = random:integer(ecis.length() - 1);
+      ecis[rand_int]
     }
 
     get_orders = function() {
@@ -111,9 +113,7 @@ ruleset store {
         "applied_drivers": [],
         "has_been_delivered": "none"
       }.klog("NEW ORDER")
-      ecis = get_driver_eci()
-      rand_int = random:integer(ecis.length() - 1);
-      eci = ecis[rand_int]
+      eci = get_driver_eci()
     }
 
     always {
