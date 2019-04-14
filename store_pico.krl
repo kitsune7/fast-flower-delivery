@@ -1,4 +1,4 @@
-iruleset store_pico {
+ruleset store_pico {
   meta {
     use module twilio_sms alias twilio
     use module io.picolabs.subscription alias Subscriptions
