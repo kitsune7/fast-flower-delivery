@@ -12,9 +12,9 @@ ruleset store_pico {
     delay_seconds = 5 // The number of seconds to wait for collecting all the driver responses
 
     get_driver_eci = function () {
-      subscriptions = Subscriptions:established("Tx_role","driver").klog("Drivers:");
+      subscriptions = Subscriptions:established().klog("subscriptions");
       rand_int = random:integer(ecis.length() - 1);
-      subscriptions[rand_int]{"Tx"}
+      subscriptions[rand_int]{"Tx"}.klog("returned val")
     }
 
     get_orders = function() {
@@ -137,14 +137,8 @@ ruleset store_pico {
       eci = get_driver_eci()
     }
 
-    always {
-      ent:orders{order_id} := new_order;
-      
-      schedule driver event "hire" at time:add(time:now(), {"seconds" : delay}) attributes {
-        "order_id": order_id
-      };
-      
-      event:send({
+    if not eci.isnull() then 
+    event:send({
         "eci": eci,
         "domain": "driver",
         "type": "find_driver",
@@ -158,6 +152,13 @@ ruleset store_pico {
           "store_long": store_long
         }
       })
+      
+    always {
+      ent:orders{order_id} := new_order;
+      
+      schedule driver event "hire" at time:add(time:now(), {"seconds" : delay}) attributes {
+        "order_id": order_id
+      };
     }
   }
   
