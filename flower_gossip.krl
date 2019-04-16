@@ -59,11 +59,10 @@ ruleset flower_gossip {
       }.klog("NEW LOG ENTRY: ")
     }
     test = function() {
-     results = {};
-     highestMsg = getOffers().values().map(function(v) {v.keys().reverse().head()});
-     str = highestMsg[0].split(re#:#);
-     results = {}.put(str[0], str[1].as("Number"));
-     highestMsg.reduce(function(a,b) { str = b.split(re#:#); a.put(str[0], str[1].as("Number")) }, results)
+      differences = getEcis().map(function(v) {{}.put(v, getRumors(v).length()-1)});
+      differences.collect(function(v){(v.values()[0] < 0) => "neg" | "nonneg"});
+     //getEcis().map(function(v) {{}.put(v, getRumors(v).length()-1)})
+     
     }
     
     /*********************
@@ -80,7 +79,7 @@ ruleset flower_gossip {
      *********************/
     getPeer = function(state, val) {
       log("", "ENTERING GET PEER");
-      differences = ((getState() == {}) => getEcis().map(function(v) {{}.put(v, getRumors(v).length()-1)}) | getEcis().map(function(v) {{}.put(v, getDifferences(v))})).klog("DIFFERENCES: ");
+      differences = ((getState().length() == 0) => getEcis().map(function(v) {{}.put(v, getRumors(v).length()-1)}) | getEcis().map(function(v) {{}.put(v, getDifferences(v))})).klog("DIFFERENCES: ");
       x = differences.collect(function(v){(v.values()[0] < 0) => "neg" | "nonneg"});
       type = (x{"nonneg"}.length() == 0) => "seen" | "rumor";
       results = (type == "seen") => [].append(differences[randomInt(differences.length() - 1)].keys()[0]) | [].append(differences.reduce(function(a,b) { (a.values()[0] > b.values()[0]) => a | b }).keys()[0]);
@@ -88,7 +87,9 @@ ruleset flower_gossip {
     }
     
     getDifferences = function(eci) {
-      results = (getState(){eci}.isnull()) => [getRumors(eci).length()-1] | getState(){eci}.map(function(v,k) { (getSeen(){k}.isnull()) => -1 | getSeen(){k} - v }).values();
+      log("", "ENTERING GET DIFFERENCES");
+      log(getState(){eci}, "STATE AT ECI: ");
+      results = (getState(){eci}.isnull()) => [getRumors(eci).length()-1] | getState(){eci}.map(function(v,k) { (getSeen(){k}.isnull()).klog("IS NULL AT k?") => -1 | (getSeen(){k} == v.as("Number")) => -1 | getSeen(){k}.klog("SEEN AT K: ") - v.as("Number").klog("v: ") }).values();
       results.sort("numeric");
       results.reverse();
       results[0]
@@ -133,14 +134,17 @@ ruleset flower_gossip {
       getPeerResults = getPeer(getState(), 0).klog("RESULT OF GETPEER: ")
       subscriber = getPeerResults[0]
       type = getPeerResults[1]
-      m = prepareMessage(subscriber, type)
-      results = m.map(function(v) { v{"MessageID"} }).map(function(y) { y.split(re#:#) }).reverse()
+      m = prepareMessage(subscriber, type).klog("M: ")
+      invalid = (type == "seen") => m.keys()[0] == "null" | m[0].isnull()
+      results = m.map(function(v) { v{"MessageID"} }).map(function(y) { y.split(re#:#) }).reverse().klog("RESULTS: ")
+      test = m.keys()[0] == "null"
     }
+    if (not invalid) then
     event:send( {"eci": subscriber, "domain": "gossip", "type": "message",
                  "attrs": { "picoId": meta:picoId, "type": type, "message": m } } )
     always {
       schedule gossip event "heartbeat" at time:add(time:now(), {"seconds": getN()});
-      raise gossip event "update" attributes { "from": subscriber, "picoId": results[0][0], "val": results[0][1] } if (type == "rumor");
+      raise gossip event "update" attributes { "from": subscriber, "picoId": results[0][0], "val": results[0][1] } if (type == "rumor" && not invalid);
       X = "".klog("EXITING PROCESS_GOSSIP_HEARTBEAT")
     }
   }
@@ -256,11 +260,11 @@ ruleset flower_gossip {
   rule update_state {
     select when gossip update where (not event:attr("picoId").isnull())
     pre {
-      from = event:attr("from")
-      state = {}.put(event:attr("picoId"), event:attr("val").as("Number"))
+      I = log("", "ENTERING_UPDATE_STATE")
+      from = event:attr("from").klog("FROM: ")
+      state = {}.put(event:attr("picoId"), event:attr("val").as("Number")).klog("STATE: ")
     }
     always {
-      
       ent:state := getState().put([from, event:attr("picoId")], event:attr("val"))
     }
   }
