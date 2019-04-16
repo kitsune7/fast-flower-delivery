@@ -1,7 +1,11 @@
 ruleset driver {
   meta {
+    use module io.picolabs.subscription alias Subscriptions
+    use module io.picolabs.wrangler alias wrangler
+    
     shares __testing // Testing
     , getCurrentOrder, getDriverName, getLocation, getPhoneNumber // Entity
+    , getMyEci // Functions
   }
   global {
     /*******************
@@ -17,6 +21,7 @@ ruleset driver {
       , { "name": "getDriverName" }
       , { "name": "getLocation" }
       , { "name": "getPhoneNumber" }
+      , { "name": "getMyEci" }
       ] , "events":
       [ { "domain": "driver", "type": "offer" }
       , { "domain": "driver", "type": "update_order", "attrs": [ "orderId", "pickupTime", "deliveryAddress", "customerPhone", "customerName", "assignedDriver", "hasBeenDelivered" ] }
@@ -38,6 +43,9 @@ ruleset driver {
      /*******************
       *   Functions     *
       ******************/
+      getMyEci = function() {      
+        wrangler:channel("main", null, null){"id"}.klog("MY ECI: ")
+      }
   }
   
   /***************************
@@ -48,11 +56,13 @@ ruleset driver {
     select when driver find_driver
     pre {
       I = "".klog("ENTERING RESPOND_TO_OFFER ---")
-      orderId = event:attr("order_id")
+      orderId = event:attr("order_id").klog("ORDER_ID: ")
+      eci = event:attr("store_eci").klog("STORE ECI: ")
+      s = getCurrentOrder().length().klog("LENGTH: ")
     }
-    if (getCurrentOrder() != {}) then
-      event:send( { "eci": meta:eci, "domain": "order", "type": "apply", 
-                    "attrs": { "eci": meta:eci, "order_id": orderId, "driver_name": getDriverName(), "phone_number": getPhoneNumber(), "driver_location": getLocation() } } )
+    if (getCurrentOrder().length() == 0) then
+      event:send( { "eci": eci, "domain": "order", "type": "apply", 
+                    "attrs": { "eci": getMyEci(), "order_id": orderId, "driver_name": getDriverName(), "phone_number": getPhoneNumber(), "driver_location": getLocation() } } )
     fired {
 
     }
