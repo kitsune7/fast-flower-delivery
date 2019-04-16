@@ -20,7 +20,7 @@ ruleset store_pico {
       ] , "events":
       [ { "domain": "order", "type": "new", "attrs": [ "pickup_time", "delivery_address", "customer_phone", "customer_name" ] }
       , { "domain": "orders", "type": "clear" }
-      //, { "domain": "driver", "type": "update_name", "attrs": [ "name" ] }
+      , { "domain": "driver", "type": "selected", "attrs": [ "order_id" ] }
       //, { "domain": "driver", "type": "update_location", "attrs": [ "location" ] }
       //, { "domain": "driver", "type": "update_phone", "attrs": [ "phoneNumber" ] }
       //, { "domain": "driver", "type": "reset" }
@@ -29,7 +29,8 @@ ruleset store_pico {
 
     // Store address is set to TMCB building BYU
     store_address = "BYU, TMCB, Provo, UT"
-    delay_seconds = 3 // The number of seconds to wait for collecting all the driver responses
+    delay_seconds = 15 // The number of seconds to wait for collecting all the driver responses
+    store_phone = "+13852478058"
 
     get_driver_eci = function () {
       subscriptions = Subscriptions:established().klog("subscriptions");
@@ -152,7 +153,12 @@ ruleset store_pico {
       customer_phone = event:attr("customer_phone")
       customer_name = event:attr("customer_name")
 
+      ecis = get_driver_eci()
+      tx = ecis{"Tx"}
+      rx = ecis{"Rx"}
+      
       new_order = {
+        "store_eci": rx,
         "order_id": order_id,
         "pickup_time": pickup_time,
         "delivery_address": delivery_address,
@@ -162,9 +168,6 @@ ruleset store_pico {
         "applied_drivers": [],
         "has_been_delivered": "none"
       }.klog("NEW ORDER")
-      ecis = get_driver_eci()
-      tx = ecis{"Tx"}
-      rx = ecis{"Rx"}
     }
 
     if not tx.isnull() then 
@@ -179,7 +182,8 @@ ruleset store_pico {
           "delivery_address": delivery_address,
           "customer_phone": customer_phone,
           "customer_name": customer_name,
-          "store_address": store_address
+          "store_address": store_address,
+          "from_rumor": null
         }
       })
       
@@ -194,6 +198,7 @@ ruleset store_pico {
   rule applied_for_job {
     select when order apply
     pre {
+      store_eci = event:attr("store_eci")
       driver_eci = event:attr("eci")
       order_id = event:attr("order_id")
       name = event:attr("driver_name")
@@ -243,9 +248,10 @@ ruleset store_pico {
     }
     event:send({
       "eci": driver{"eci"},
-      "domain": "test",
-      "type": "test",
+      "domain": "driver",
+      "type": "assign",
       "attrs": {
+        "store_eci": order{"store_eci"},
         "order_id": order_id,
         "pickup_time": order{"pickup_time"},
         "delivery_address": order{"delivery_address"},
@@ -253,6 +259,9 @@ ruleset store_pico {
         "customer_name": order{"customer_name"}
       }
     })
+    fired {
+      raise notify event "customer" attributes { "order_id": order_id, "driver_phone": order{"customer_phone"}, "driver_name": order{"driver_name"} }
+    }
   }
 
   rule notify_customer {
