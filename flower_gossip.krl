@@ -48,13 +48,14 @@ ruleset flower_gossip {
     testPeer = function() { getPeer(getState(), 0) }
     log = function(v, m) { v.klog(m + ": ") }
     getEcis = function() { Subscriptions:established("Tx_role", "sensor").map(function(v) { v{"Tx"} }) }
-    createLogEntry = function(orderId, timestamp) {
+    createLogEntry = function(orderId, timestamp, eci) {
       log("", "ENTERING CREATE LOG ENTRY");
       {
        "MessageID": meta:picoId + ":" + getSeq(),
        "SensorID": meta:picoId,
        "OrderID": orderId,
-       "Timestamp": timestamp
+       "Timestamp": timestamp,
+       "Store_Eci": eci
       }.klog("NEW LOG ENTRY: ")
     }
     test = function() {
@@ -171,7 +172,7 @@ ruleset flower_gossip {
     }
     always {
       raise gossip event "update" attributes { "from": meta:eci, "picoId": picoId, "val": seqNum} if (seqNum == oldSeq + 1);
-      raise driver event "find_driver" attributes { "order_id": rumor{"order_id"} };
+      raise driver event "find_driver" attributes { "from_rumor": "true", "order_id": rumor{"OrderID"}, "store_eci": rumor{"Store_Eci"} };
       ent:offers := getOffers().put([picoId, picoId + ":" + seqNum], rumor)
     }
   }
@@ -201,14 +202,15 @@ ruleset flower_gossip {
   }
   
   rule add_new_offer {
-    select when driver find_driver
+    select when driver find_driver where (event:attr("from_rumor").isnull())
     pre {
      I = log("", "ENTERING ADD_NEW_OFFER")
      orderId = event:attr("order_id")
      timestamp = time:now()
+     eci = event:attr("store_eci")
     }
     always {
-      ent:offers := getOffers().put([meta:picoId, meta:picoId + ":" + getSeq()], createLogEntry(orderId, timestamp));
+      ent:offers := getOffers().put([meta:picoId, meta:picoId + ":" + getSeq()], createLogEntry(orderId, timestamp, eci));
       ent:seq := getSeq() + 1
     }
   }
