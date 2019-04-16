@@ -2,21 +2,44 @@ ruleset store_pico {
   meta {
     use module twilio_sms alias twilio
     use module io.picolabs.subscription alias Subscriptions
+    use module io.picolabs.wrangler alias wrangler
     shares __testing, get_orders, get_order_by_id, get_incomplete_orders, get_unassigned_orders, get_driver_eci
   }
 
   global {
+     /*******************
+     *     Testing     *
+     ******************/
+    __testing = { "queries":
+      [ { "name": "__testing" }
+      , { "name": "get_orders" }
+      , { "name": "get_driver_eci" }
+      //, { "name": "getLocation" }
+      //, { "name": "getPhoneNumber" }
+      ] , "events":
+      [ { "domain": "order", "type": "new", "attrs": [ "pickup_time", "delivery_address", "customer_phone", "customer_name" ] }
+      , { "domain": "orders", "type": "clear" }
+      //, { "domain": "driver", "type": "update_name", "attrs": [ "name" ] }
+      //, { "domain": "driver", "type": "update_location", "attrs": [ "location" ] }
+      //, { "domain": "driver", "type": "update_phone", "attrs": [ "phoneNumber" ] }
+      //, { "domain": "driver", "type": "reset" }
+      ]
+    }
+
     // Store address is set to TMCB building BYU
     store_lat = 40.249213
     store_long = 111.651413
-    delay_seconds = 5 // The number of seconds to wait for collecting all the driver responses
+    delay_seconds = 10 // The number of seconds to wait for collecting all the driver responses
 
     get_driver_eci = function () {
       subscriptions = Subscriptions:established().klog("subscriptions");
-      rand_int = random:integer(ecis.length() - 1);
-      subscriptions[rand_int]{"Tx"}.klog("returned val")
+      rand_int = random:integer(subscriptions.length() - 1);
+      {
+        "Tx": subscriptions[rand_int]{"Tx"}.klog("returned val"),
+        "Rx": subscriptions[rand_int]{"Rx"}.klog("returned val")
+      }
     }
-
+    
     get_orders = function() {
       ent:orders.defaultsTo([])
     }
@@ -134,15 +157,18 @@ ruleset store_pico {
         "applied_drivers": [],
         "has_been_delivered": "none"
       }.klog("NEW ORDER")
-      eci = get_driver_eci()
+      ecis = get_driver_eci()
+      tx = ecis{"Tx"}
+      rx = ecis{"Rx"}
     }
 
-    if not eci.isnull() then 
+    if not tx.isnull() then 
     event:send({
-        "eci": eci,
+        "eci": tx,
         "domain": "driver",
         "type": "find_driver",
         "attrs": {
+          "store_eci": rx,
           "order_id": order_id,
           "pickup_time": pickup_time,
           "delivery_address": delivery_address,
@@ -156,7 +182,7 @@ ruleset store_pico {
     always {
       ent:orders{order_id} := new_order;
       
-      schedule driver event "hire" at time:add(time:now(), {"seconds" : delay}) attributes {
+      schedule driver event "hire" at time:add(time:now(), {"seconds" : delay_seconds}) attributes {
         "order_id": order_id
       };
     }
@@ -167,9 +193,9 @@ ruleset store_pico {
     pre {
       driver_eci = event:attr("eci")
       order_id = event:attr("order_id")
-      name = event:attr("name")
-      phone = event:attr("phone")
-      location = event:attr("location")
+      name = event:attr("driver_name")
+      phone = event:attr("phone_number")
+      location = event:attr("driver_location")
       order = ent:orders{order_id}
     }
     always {
@@ -250,5 +276,4 @@ ruleset store_pico {
       ent:orders{order_id} := order.put(["has_been_delivered"], "true")
     }
   }
-
 }
