@@ -1,6 +1,7 @@
 ruleset store_pico {
   meta {
     use module twilio_sms alias twilio
+    use module distance
     use module io.picolabs.subscription alias Subscriptions
     use module io.picolabs.wrangler alias wrangler
     shares __testing, get_orders, get_order_by_id, get_incomplete_orders, get_unassigned_orders, get_driver_eci
@@ -27,9 +28,8 @@ ruleset store_pico {
     }
 
     // Store address is set to TMCB building BYU
-    store_lat = 40.249213
-    store_long = 111.651413
-    delay_seconds = 10 // The number of seconds to wait for collecting all the driver responses
+    store_address = "BYU, TMCB, Provo, UT"
+    delay_seconds = 3 // The number of seconds to wait for collecting all the driver responses
 
     get_driver_eci = function () {
       subscriptions = Subscriptions:established().klog("subscriptions");
@@ -58,6 +58,11 @@ ruleset store_pico {
       ent:orders.filter(function(order) {
         order{"assigned_driver"} == "none";
       });
+    }
+    
+    driver_destinations = function (drivers) {
+      driver_locations = drivers.map(function (driver) { driver{"location"} });
+      driver_locations.join("|")
     }
   }
 
@@ -99,7 +104,7 @@ ruleset store_pico {
       raise wrangler event "subscription" attributes {
         "name": name,
         "channel_type": "subscription",
-	      "Tx_role": "driver",
+        "Tx_role": "driver",
         "wellKnown_Tx": eci,
         "Rx_role": "driver"
       }
@@ -163,7 +168,7 @@ ruleset store_pico {
     }
 
     if not tx.isnull() then 
-    event:send({
+      event:send({
         "eci": tx,
         "domain": "driver",
         "type": "find_driver",
@@ -174,17 +179,15 @@ ruleset store_pico {
           "delivery_address": delivery_address,
           "customer_phone": customer_phone,
           "customer_name": customer_name,
-          "store_lat": store_address,
-          "store_long": store_long
+          "store_address": store_address
         }
       })
       
     always {
       ent:orders{order_id} := new_order;
-      
       schedule driver event "hire" at time:add(time:now(), {"seconds" : delay_seconds}) attributes {
         "order_id": order_id
-      };
+      }
     }
   }
   
@@ -215,9 +218,20 @@ ruleset store_pico {
     select when driver hire
     pre {
       order_id = event:attr("order_id")
-      drivers = ent:orders{order_id}{"applied_drivers"}
+      order = ent:orders{order_id}
+      drivers = order{"applied_drivers"}.defaultsTo([null])
+      results = distance:get_distance(store_address, driver_destinations(drivers))
+      driver_index = distance:closest_index(results)
     }
-    /* TODO: Add magic API voodoo that figures out which driver is closest */
+    always {
+      ent:orders{order_id} := order.put(
+        ["assigned_driver"],
+        drivers.splice(driver_index, 0).head()
+      );
+      raise driver event "selected" attributes {
+        "order_id": order_id
+      }
+    }
   }
   
   rule notify_selected_driver {

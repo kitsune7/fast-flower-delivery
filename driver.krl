@@ -37,7 +37,7 @@ ruleset driver {
      *******************/
      getCurrentOrder = function() { ent:currentOrder.defaultsTo({}) }
      getDriverName = function() { ent:driverName.defaultsTo("Bob Driver") }
-     getLocation = function() { ent:location.defaultsTo("40°14'34.9\"N 111°39'05.7\"W") }
+     getLocation = function() { ent:location.defaultsTo("Spanish Fork, UT") }
      getPhoneNumber = function() { ent:phoneNumber.defaultsTo("7027670013") }
      
      /*******************
