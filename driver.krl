@@ -24,6 +24,7 @@ ruleset driver {
       , { "name": "getMyEci" }
       ] , "events":
       [ { "domain": "driver", "type": "offer" }
+      , { "domain": "driver", "type": "delivered" }
       , { "domain": "driver", "type": "update_order", "attrs": [ "orderId", "pickupTime", "deliveryAddress", "customerPhone", "customerName", "assignedDriver", "hasBeenDelivered" ] }
       , { "domain": "driver", "type": "update_name", "attrs": [ "name" ] }
       , { "domain": "driver", "type": "update_location", "attrs": [ "location" ] }
@@ -62,7 +63,7 @@ ruleset driver {
     }
     if (getCurrentOrder().length() == 0) then
       event:send( { "eci": eci, "domain": "order", "type": "apply", 
-                    "attrs": { "eci": getMyEci(), "order_id": orderId, "driver_name": getDriverName(), "phone_number": getPhoneNumber(), "driver_location": getLocation() } } )
+                    "attrs": { "store_eci": eci, "eci": getMyEci(), "order_id": orderId, "driver_name": getDriverName(), "phone_number": getPhoneNumber(), "driver_location": getLocation() } } )
     fired {
 
     }
@@ -71,12 +72,14 @@ ruleset driver {
   rule accept_assignment {
     select when driver assign
     pre {
+      storeEci = event:attr("store_eci")
       orderId = event:attr("order_id")
       pickupTime = event:attr("pickup_time")
       deliveryAddress = event:attr("delivery_address")
       customerPhone = event:attr("customer_phone")
       customerName = event:attr("customer_name")
-      order = { "order_id": orderId,
+      order = { "store_eci": storeEci,
+                "order_id": orderId,
                 "pickup_time": pickupTime,
                 "delivery_address": deliveryAddress,
                 "customer_phone": customerPhone,
@@ -92,7 +95,7 @@ ruleset driver {
   
   rule confirm_delivery {
     select when driver delivered
-    event:send( { "eci": "", "domain": "order", "type": "complete",
+    event:send( { "eci": getCurrentOrder(){"store_eci"}, "domain": "order", "type": "complete",
                   "attrs": { "order_id": getCurrentOrder(){"order_id"}, "deliveryTime": time:now(), "driverRating": event:attr("rating") } } )
     always {
       clear ent:currentOrder;
